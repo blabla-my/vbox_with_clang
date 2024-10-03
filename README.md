@@ -1,5 +1,4 @@
 # Vbox with clang
-Clang+llvm can be used to instrument the source code. However, virtual box cannot be directly built with clang.
 
 This repo includes things needed to build virtual box with clang.
 
