@@ -1,0 +1,629 @@
+diff --git a/Config.kmk b/Config.kmk
+index 2bc510416..dcdcfe144 100644
+--- a/Config.kmk
++++ b/Config.kmk
+@@ -5441,7 +5441,11 @@ ifeq ($(VBOX_LDR_FMT),pe)
+ endif # pe
+ 
+ ifeq ($(VBOX_LDR_FMT),elf)
+- TEMPLATE_VBoxR0_TOOL               = $(VBOX_GCC_TOOL)
++ ifeq ($(VBOX_GCC_TOOL),CLANG)
++  TEMPLATE_VBoxR0_TOOL              = GXX64
++ else
++  TEMPLATE_VBoxR0_TOOL              = $(VBOX_GCC_TOOL)
++ endif
+  TEMPLATE_VBoxR0_CFLAGS             = -fno-pie -nostdinc -g $(VBOX_GCC_pipe) $(VBOX_GCC_WERR) $(VBOX_GCC_PEDANTIC_C) \
+  	$(VBOX_GCC_Wno-variadic-macros) $(VBOX_GCC_R0_OPT) $(VBOX_GCC_R0_FP) -fno-strict-aliasing -fno-exceptions \
+  	$(VBOX_GCC_fno-stack-protector) -fno-common -ffreestanding $(VBOX_GCC_fvisibility-hidden) -std=gnu99 $(VBOX_GCC_IPRT_FMT_CHECK)
+diff --git a/include/VBox/vmm/pdmpcidev.h b/include/VBox/vmm/pdmpcidev.h
+index 13708837e..dfd75c52a 100644
+--- a/include/VBox/vmm/pdmpcidev.h
++++ b/include/VBox/vmm/pdmpcidev.h
+@@ -71,7 +71,7 @@ typedef DECLCALLBACKTYPE(VBOXSTRICTRC, FNPCICONFIGREAD,(PPDMDEVINS pDevIns, PPDM
+ typedef FNPCICONFIGREAD *PFNPCICONFIGREAD;
+ #if !RT_CLANG_PREREQ(11, 0) /* Clang 11 (at least) has trouble with nothrow and pointers to function pointers. */
+ /** Pointer to a PFNPCICONFIGREAD. */
+-typedef PFNPCICONFIGREAD *PPFNPCICONFIGREAD;
++//typedef PFNPCICONFIGREAD *PPFNPCICONFIGREAD;
+ #endif
+ 
+ /**
+@@ -98,7 +98,7 @@ typedef DECLCALLBACKTYPE(VBOXSTRICTRC, FNPCICONFIGWRITE,(PPDMDEVINS pDevIns, PPD
+ typedef FNPCICONFIGWRITE *PFNPCICONFIGWRITE;
+ #if !RT_CLANG_PREREQ(11, 0) /* Clang 11 (at least) has trouble with nothrow and pointers to function pointers. */
+ /** Pointer to a PFNPCICONFIGWRITE. */
+-typedef PFNPCICONFIGWRITE *PPFNPCICONFIGWRITE;
++//typedef PFNPCICONFIGWRITE *PPFNPCICONFIGWRITE;
+ #endif
+ 
+ /**
+diff --git a/include/VBox/vmm/pdmpcidevint.h b/include/VBox/vmm/pdmpcidevint.h
+index 6a474edde..eea54080f 100644
+--- a/include/VBox/vmm/pdmpcidevint.h
++++ b/include/VBox/vmm/pdmpcidevint.h
+@@ -98,7 +98,7 @@ typedef DECLCALLBACKTYPE(VBOXSTRICTRC, FNPCIBRIDGECONFIGREAD,(PPDMDEVINSR3 pDevI
+ typedef FNPCIBRIDGECONFIGREAD *PFNPCIBRIDGECONFIGREAD;
+ #if !RT_CLANG_PREREQ(11, 0) /* Clang 11 (at least) has trouble with nothrow and pointers to function pointers. */
+ /** Pointer to a PFNPCICONFIGREAD. */
+-typedef PFNPCIBRIDGECONFIGREAD *PPFNPCIBRIDGECONFIGREAD;
++//typedef PFNPCIBRIDGECONFIGREAD *PPFNPCIBRIDGECONFIGREAD;
+ #endif
+ 
+ /**
+@@ -119,7 +119,7 @@ typedef DECLCALLBACKTYPE(VBOXSTRICTRC, FNPCIBRIDGECONFIGWRITE,(PPDMDEVINSR3 pDev
+ typedef FNPCIBRIDGECONFIGWRITE *PFNPCIBRIDGECONFIGWRITE;
+ #if !RT_CLANG_PREREQ(11, 0) /* Clang 11 (at least) has trouble with nothrow and pointers to function pointers. */
+ /** Pointer to a PFNPCICONFIGWRITE. */
+-typedef PFNPCIBRIDGECONFIGWRITE *PPFNPCIBRIDGECONFIGWRITE;
++//typedef PFNPCIBRIDGECONFIGWRITE *PPFNPCIBRIDGECONFIGWRITE;
+ #endif
+ 
+ /* Forward declaration */
+diff --git a/kBuild/tools/SYMCC.kmk b/kBuild/tools/SYMCC.kmk
+new file mode 100644
+index 000000000..1e832f1cf
+--- /dev/null
++++ b/kBuild/tools/SYMCC.kmk
+@@ -0,0 +1,380 @@
++# $Id: SYMCC.kmk 3393 2020-06-30 17:11:42Z bird $
++## @file
++# kBuild Tool Config - Clang 13 or later. 
++#
++
++#
++# Copyright (c) 2004-2017 knut st. osmundsen <bird-kBuild-spam-xviiv@anduin.net>
++# 
++# Author: Qiang Liu <cyruscyliu@gmail.com>
++#
++# This file is part of kBuild.
++#
++# kBuild is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 2 of the License, or
++# (at your option) any later version.
++#
++# kBuild is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with kBuild; if not, write to the Free Software
++# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++#
++#
++# As a special exception you are granted permission to include this file, via
++# the kmk include directive, as you wish without this in itself causing the
++# resulting makefile, program or whatever to be covered by the GPL license.
++# This exception does not however invalidate any other reasons why the makefile,
++# program, whatever should not be covered the GPL.
++#
++#
++
++TOOL_SYMCC := Clang 13 or later.
++
++# Tool Specific Properties
++ifndef TOOL_SYMCC_PREFIX
++ TOOL_SYMCC_PREFIX  :=
++endif
++ifndef TOOL_SYMCC_SUFFIX
++ TOOL_SYMCC_SUFFIX  := $(HOSTSUFF_EXE)
++endif
++if1of ($(KBUILD_HOST), solaris)
++ TOOL_SYMCC_PREFIX2 ?= g
++else
++ TOOL_SYMCC_PREFIX2 ?=
++endif
++TOOL_SYMCC_SUFFIX2  ?= $(HOSTSUFF_EXE)
++TOOL_SYMCC_PREFIX3  ?=
++TOOL_SYMCC_SUFFIX3  ?= $(HOSTSUFF_EXE)
++TOOL_SYMCC_CC       ?= $(TOOL_SYMCC_PREFIX)symcc$(TOOL_SYMCC_SUFFIX) -m64
++TOOL_SYMCC_CXX      ?= $(TOOL_SYMCC_PREFIX)sym++$(TOOL_SYMCC_SUFFIX) -m64
++TOOL_SYMCC_PCH      ?= $(TOOL_SYMCC_CXX)
++TOOL_SYMCC_AS       ?= $(TOOL_SYMCC_PREFIX)symcc$(TOOL_SYMCC_SUFFIX) -m64
++TOOL_SYMCC_AR       ?= $(TOOL_SYMCC_PREFIX2)ar$(TOOL_SYMCC_SUFFIX2)
++TOOL_SYMCC_LD       ?= $(TOOL_SYMCC_PREFIX)sym++$(TOOL_SYMCC_SUFFIX) -m64
++if1of ($(KBUILD_HOST), solaris)
++ TOOL_SYMCC_LD_SYSMOD ?= $(TOOL_SYMCC_PREFIX3)ld$(TOOL_SYMCC_SUFFIX3)
++else
++ TOOL_SYMCC_LD_SYSMOD ?= $(TOOL_SYMCC_PREFIX2)ld$(TOOL_SYMCC_SUFFIX2)
++endif
++ifndef TOOL_SYMCC_LDFLAGS.$(KBUILD_TARGET)
++ TOOL_SYMCC_LDFLAGS.dll ?= -shared
++else
++ TOOL_SYMCC_LDFLAGS.dll ?= $(TOOL_SYMCC_LDFLAGS.$(KBUILD_TARGET))
++endif
++TOOL_SYMCC_LDFLAGS.sysmod ?= -r -m elf_x86_64$(if-expr "$(KBUILD_TARGET)" == "freebsd" || "$(KBUILD_TARGET)" == "gnukfbsd",_fbsd,)
++TOOL_SYMCC_LD_SONAME ?= -Wl,-soname=$(firstword $($(1)_SONAME.$(KBUILD_TARGET).$(KBUILD_TYPE)) $($(1)_SONAME.$(KBUILD_TARGET)) $($(1)_SONAME.$(KBUILD_TYPE)) $($(1)_SONAME) $(notdir $(2)))
++ifeq ($(KBUILD_TARGET),os2)
++ TOOL_SYMCC_LD_MAP ?= -Zmap=$(1)
++else
++ TOOL_SYMCC_LD_MAP ?=
++endif
++ifeq ($(KBUILD_TARGET),os2)
++ TOOL_SYMCC_LD_SYSMOD_MAP ?= -Zmap=$(1)
++else
++ TOOL_SYMCC_LD_SYSMOD_MAP ?=
++endif
++TOOL_SYMCC_OBJCOPY ?= $(TOOL_SYMCC_PREFIX2)objcopy$(TOOL_SYMCC_SUFFIX2)
++
++ifdef SLKRUNS
++ TOOL_SYMCC_CC  += -fmessage-length=0
++ TOOL_SYMCC_CXX += -fmessage-length=0
++endif
++
++# General Properties used by kBuild
++TOOL_SYMCC_COBJSUFF         ?= .o
++TOOL_SYMCC_CFLAGS           ?=
++TOOL_SYMCC_CFLAGS.debug     ?= -g
++TOOL_SYMCC_CFLAGS.profile   ?= -O2 #-g -pg
++TOOL_SYMCC_CFLAGS.release   ?= -O2
++TOOL_SYMCC_CINCS            ?=
++TOOL_SYMCC_CDEFS            ?=
++
++TOOL_SYMCC_CXXOBJSUFF       ?= .o
++TOOL_SYMCC_CXXFLAGS         ?=
++TOOL_SYMCC_CXXFLAGS.debug   ?= -g
++TOOL_SYMCC_CXXFLAGS.profile ?= -O2 #-g -pg
++TOOL_SYMCC_CXXFLAGS.release ?= -O2
++TOOL_SYMCC_CXXINCS          ?=
++TOOL_SYMCC_CXXDEFS          ?=
++
++TOOL_SYMCC_PCHOBJSUFF       ?= .h.gch
++TOOL_SYMCC_PCHFLAGS         ?= $(TOOL_SYMCC_CXXFLAGS)
++TOOL_SYMCC_PCHFLAGS.debug   ?= $(TOOL_SYMCC_CXXFLAGS.debug)
++TOOL_SYMCC_PCHFLAGS.profile ?= $(TOOL_SYMCC_CXXFLAGS.profile)
++TOOL_SYMCC_PCHFLAGS.release ?= $(TOOL_SYMCC_CXXFLAGS.release)
++TOOL_SYMCC_PCHINCS          ?= $(TOOL_SYMCC_CXXINCS)
++TOOL_SYMCC_PCHDEFS          ?= $(TOOL_SYMCC_CXXDEFS)
++
++TOOL_SYMCC_ASFLAGS          ?= -x assembler-with-cpp
++TOOL_SYMCC_ASFLAGS.debug    ?= -g
++TOOL_SYMCC_ASFLAGS.profile  ?= -g
++TOOL_SYMCC_ASOBJSUFF        ?= .o
++
++TOOL_SYMCC_ARFLAGS          ?= cr
++TOOL_SYMCC_ARLIBSUFF        ?= .a
++
++TOOL_SYMCC_LDFLAGS          ?=
++TOOL_SYMCC_LDFLAGS.debug    ?= -g
++TOOL_SYMCC_LDFLAGS.profile  ?= -g
++
++
++## Compile C source.
++# @param    $(target)   Normalized main target name.
++# @param    $(source)   Source filename (relative).
++# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
++# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
++# @param    $(flags)    Flags.
++# @param    $(defs)     Definitions. No -D or something.
++# @param    $(incs)     Includes. No -I or something.
++# @param    $(dirdep)   Directory creation dependency.
++# @param    $(deps)		Other dependencies.
++#
++# @param    $(outbase)  Output basename (full). Use this for list files and such.
++# @param    $(objsuff)  Object suffix.
++TOOL_SYMCC_COMPILE_C_DEPEND =
++TOOL_SYMCC_COMPILE_C_DEPORD =
++TOOL_SYMCC_COMPILE_C_OUTPUT         = $(if-expr "$(use_objcache)" != "",$(outbase).i,)
++TOOL_SYMCC_COMPILE_C_USES_KOBJCACHE = $(if-expr "$(use_objcache)" != "",1,)
++define TOOL_SYMCC_COMPILE_C_CMDS
++if "$(use_objcache)" != ""
++	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
++		--kObjCache-cpp $(outbase).i\
++		$(TOOL_SYMCC_CC) -E -o -\
++		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
++		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
++		$(abspath $(source))\
++		--kObjCache-cc $(obj)\
++		$(TOOL_SYMCC_CC) -c\
++		$(flags) -fpreprocessed -x c\
++		-o $(obj)\
++		-
++else
++	$(QUIET)$(TOOL_SYMCC_CC) -c\
++		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
++		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
++		-o $(obj)\
++		$(abspath $(source))
++endif
++	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
++endef
++
++
++## Compile C++ source.
++# @param    $(target)   Normalized main target name.
++# @param    $(source)   Source filename (relative).
++# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
++# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
++# @param    $(flags)    Flags.
++# @param    $(defs)     Definitions. No -D or something.
++# @param    $(incs)     Includes. No -I or something.
++# @param    $(dirdep)   Directory creation dependency.
++# @param    $(deps)     Other dependencies.
++# @param    $(outbase)  Output basename (full). Use this for list files and such.
++# @param    $(objsuff)  Object suffix.
++TOOL_SYMCC_COMPILE_CXX_OUTPUT         = $(if-expr "$(use_objcache)" != "",$(outbase).ii,)
++TOOL_SYMCC_COMPILE_CXX_DEPEND         = $($(target)_1_GCC_PCH_FILE)
++TOOL_SYMCC_COMPILE_CXX_DEPORD         =
++TOOL_SYMCC_COMPILE_CXX_USES_KOBJCACHE = $(if-expr "$(use_objcache)" != "",1,)
++define TOOL_SYMCC_COMPILE_CXX_CMDS
++if "$(use_objcache)" != ""
++	$(QUIET)$(KOBJCACHE) -f $(outbase).koc -d $(PATH_OBJCACHE) -t $(bld_trg).$(bld_trg_arch) -p\
++		--kObjCache-cpp $(outbase).ii\
++		$(TOOL_SYMCC_CXX) -E -o - $(if-expr defined($(target)_PCH_HDR)\
++		,-fpch-preprocess -Winvalid-pch -I$($(target)_1_GCC_PCH_DIR) -include $(basename $($(target)_1_GCC_PCH_FILE)),)\
++		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
++		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
++		$(abspath $(source))\
++		--kObjCache-cc $(obj)\
++		$(TOOL_SYMCC_CXX) -c\
++		$(flags) -fpreprocessed $(if-expr defined($(target)_PCH_HDR),-fpch-preprocess,) -x c++\
++		-o $(obj)\
++		-
++else
++	$(QUIET)$(TOOL_SYMCC_CXX) -c\
++		$(flags) $(qaddprefix sh,-I, $($(target)_1_GCC_PCH_DIR) $(incs)) $(qaddprefix sh,-D, $(defs))\
++		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
++		-o $(obj) $(if-expr defined($(target)_PCH_HDR) \
++		,-Winvalid-pch -include $(basename $($(target)_1_GCC_PCH_FILE)),) \
++		$(abspath $(source))
++endif
++	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
++endef
++
++
++## Precompile C++ header.
++# @param    $(target)   Normalized main target name.
++# @param    $(source)   Source filename (relative).
++# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
++# @param    $(dep)	    Dependcy file. This shall be (re)created by the compilation.
++# @param    $(flags)    Flags.
++# @param    $(defs)     Definitions. No -D or something.
++# @param    $(incs)     Includes. No -I or something.
++# @param    $(dirdep)   Directory creation dependency.
++# @param    $(deps)		Other dependencies.
++# @param    $(outbase)  Output basename (full). Use this for list files and such.
++# @param    $(objsuff)  Object suffix.
++TOOL_SYMCC_COMPILE_PCH_OUTPUT = $($(target)_1_GCC_PCH_FILE)
++TOOL_SYMCC_COMPILE_PCH_DEPEND =
++TOOL_SYMCC_COMPILE_PCH_DEPORD = $($(target)_1_GCC_PCH_DIR)
++define TOOL_SYMCC_COMPILE_PCH_CMDS
++	$(QUIET)$(TOOL_SYMCC_PCH) -c\
++		$(flags) $(qaddprefix sh,-I, $($(target)_1_GCC_PCH_DIR) $(incs)) $(qaddprefix sh,-D, $(defs))\
++		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
++		-o $(obj)\
++		$(abspath $(source))
++	$(INSTALL) --hard-link-files-when-possible -m 0644 -- "$(obj)" "$($(target)_1_GCC_PCH_FILE)"
++	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
++endef
++
++
++## Compile Assembly source.
++# @param    $(target)   Normalized main target name.
++# @param    $(source)   Source filename (relative).
++# @param    $(obj)      Object file name. This shall be (re)created by the compilation.
++# @param    $(dep)      Dependcy file. This shall be (re)created by the compilation.
++# @param    $(flags)    Flags.
++# @param    $(defs)     Definitions. No -D or something.
++# @param    $(incs)     Includes. No -I or something.
++# @param    $(dirdep)   Directory creation dependency.
++# @param    $(deps)     Other dependencies.
++# @param    $(outbase)  Output basename (full). Use this for list files and such.
++# @param    $(objsuff)  Object suffix.
++#
++TOOL_SYMCC_COMPILE_AS_OUTPUT =
++TOOL_SYMCC_COMPILE_AS_DEPEND =
++TOOL_SYMCC_COMPILE_AS_DEPORD =
++define TOOL_SYMCC_COMPILE_AS_CMDS
++	$(QUIET)$(TOOL_SYMCC_AS) -c\
++		$(flags) $(qaddprefix sh,-I, $(incs)) $(qaddprefix sh,-D, $(defs))\
++		-Wp,-MD,$(dep) -Wp,-MT,$(obj) -Wp,-MP\
++		-o $(obj)\
++		$(abspath $(source))
++	$(QUIET)$(APPEND) -n "$(dep)" "" "$(source):" ""
++endef
++
++
++## Link library
++# @param    $(target)   Normalized main target name.
++# @param    $(out)		Library name.
++# @param    $(objs)     Object files to put in the library.
++# @param    $(flags)    Flags.
++# @param    $(dirdep)   Directory creation dependency.
++# @param    $(deps)		Other dependencies.
++# @param    $(othersrc) Unhandled sources.
++# @param    $(outbase)  Output basename (full). Use this for list files and such.
++TOOL_SYMCC_LINK_LIBRARY_OUTPUT = $(out).ar-script
++TOOL_SYMCC_LINK_LIBRARY_DEPEND = $(othersrc)
++TOOL_SYMCC_LINK_LIBRARY_DEPORD =
++define TOOL_SYMCC_LINK_LIBRARY_CMDS
++	$(QUIET)$(APPEND) $(out).ar-script 'CREATE $(out)'
++	$(QUIET)$(APPEND) -n $(out).ar-script \
++		$(foreach o,$(filter-out %.h.gch,$(objs)), 'ADDMOD $(o)') \
++		$(foreach o,$(othersrc), 'ADDLIB $(o)')
++	$(QUIET)$(APPEND) $(out).ar-script 'SAVE'
++	$(QUIET)$(APPEND) $(out).ar-script 'END'
++	$(QUIET)$(REDIRECT) -rti $(out).ar-script -- $(TOOL_SYMCC_AR) -M
++endef
++
++
++## Link program
++# @param    $(target)   Normalized main target name.
++# @param    $(out)		Program name.
++# @param    $(objs)     Object files to link together.
++# @param    $(libs)     Libraries to search.
++# @param    $(libpath)  Library search paths.
++# @param    $(flags)    Flags.
++# @param    $(dirdep)   Directory creation dependency.
++# @param    $(deps)		Other dependencies.
++# @param    $(othersrc) Unhandled sources.
++# @param    $(custom_pre)   Custom step invoked before linking.
++# @param    $(custom_post)  Custom step invoked after linking.
++# @param    $(outbase)  Output basename (full). Use this for list files and such.
++TOOL_SYMCC_LINK_PROGRAM_OUTPUT =
++TOOL_SYMCC_LINK_PROGRAM_OUTPUT_MAYBE = $(outbase).map
++TOOL_SYMCC_LINK_PROGRAM_OUTPUT_DEBUG = $(outbase).debug
++TOOL_SYMCC_LINK_PROGRAM_DEBUG_INSTALL_FN = $(2).debug=>$(basename $(3)).debug
++TOOL_SYMCC_LINK_PROGRAM_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
++TOOL_SYMCC_LINK_PROGRAM_DEPORD =
++define TOOL_SYMCC_LINK_PROGRAM_CMDS
++	$(QUIET)$(TOOL_SYMCC_LD) $(flags) -o $(out) $(filter-out %.h.gch,$(objs))\
++		$(foreach p,$(libpath), -L$(p))\
++		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))\
++		$(call TOOL_SYMCC_LD_MAP,$(outbase).map)
++ ifeq ($(ld_debug),split)
++	$(QUIET)$(TOOL_SYMCC_OBJCOPY) --only-keep-debug $(out) $(outbase).debug
++	$(QUIET)$(CHMOD) a-x $(outbase).debug
++	$(QUIET)$(TOOL_SYMCC_OBJCOPY) --strip-debug --strip-unneeded --add-gnu-debuglink=$(outbase).debug $(out)
++ endif
++endef
++
++
++## Link DLL
++# @param    $(target)   Normalized main target name.
++# @param    $(out)		Program name.
++# @param    $(objs)     Object files to link together.
++# @param    $(libs)     Libraries to search.
++# @param    $(libpath)  Library search paths.
++# @param    $(flags)    Flags.
++# @param    $(dirdep)   Directory creation dependency.
++# @param    $(deps)		Other dependencies.
++# @param    $(othersrc) Unhandled sources.
++# @param    $(custom_pre)   Custom step invoked before linking.
++# @param    $(custom_post)  Custom step invoked after linking.
++# @param    $(outbase)  Output basename (full). Use this for list files and such.
++TOOL_SYMCC_LINK_DLL_OUTPUT =
++TOOL_SYMCC_LINK_DLL_OUTPUT_MAYBE = $(outbase).map
++TOOL_SYMCC_LINK_DLL_OUTPUT_DEBUG = $(outbase).debug
++TOOL_SYMCC_LINK_DLL_DEBUG_INSTALL_FN = $(2).debug=>$(basename $(3)).debug
++TOOL_SYMCC_LINK_DLL_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
++TOOL_SYMCC_LINK_DLL_DEPORD =
++define TOOL_SYMCC_LINK_DLL_CMDS
++	$(QUIET)$(TOOL_SYMCC_LD) $(TOOL_SYMCC_LDFLAGS.dll) $(flags) -o $(out)\
++		$(if $(filter-out win os2, $(KBUILD_TARGET)),$(call TOOL_SYMCC_LD_SONAME,$(target),$(out)))\
++		$(filter-out %.h.gch,$(objs))\
++		$(foreach p,$(libpath), -L$(p))\
++		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))\
++		$(call TOOL_SYMCC_LD_MAP,$(outbase).map)
++ ifeq ($(ld_debug),split)
++	$(QUIET)$(TOOL_SYMCC_OBJCOPY) --only-keep-debug $(out) $(outbase).debug
++	$(QUIET)$(CHMOD) a-x $(outbase).debug
++	$(QUIET)$(TOOL_SYMCC_OBJCOPY) --strip-debug --strip-unneeded --add-gnu-debuglink=$(outbase).debug $(out)
++ endif
++endef
++
++
++## Link system module (windows aka driver, linux aka kernel module)
++# @param    $(target)   Normalized main target name.
++# @param    $(out)		System module name.
++# @param    $(objs)     Object files to link together.
++# @param    $(libs)     Libraries to search.
++# @param    $(libpath)  Library search paths.
++# @param    $(flags)    Flags.
++# @param    $(dirdep)   Directory creation dependency.
++# @param    $(deps)		Other dependencies.
++# @param    $(othersrc) Unhandled sources.
++# @param    $(custom_pre)   Custom step invoked before linking.
++# @param    $(custom_post)  Custom step invoked after linking.
++# @param    $(outbase)  Output basename (full). Use this for list files and such.
++TOOL_SYMCC_LINK_SYSMOD_OUTPUT =
++TOOL_SYMCC_LINK_SYSMOD_OUTPUT_MAYBE = $(outbase).map
++TOOL_SYMCC_LINK_SYSMOD_OUTPUT_DEBUG = $(outbase).debug
++TOOL_SYMCC_LINK_SYSMOD_DEBUG_INSTALL_FN = $(2).debug=>$(basename $(3)).debug
++TOOL_SYMCC_LINK_SYSMOD_DEPEND = $(foreach lib,$(libs),$(if $(findstring $(lib),$(subst /,x,$(lib))),, $(lib)))
++TOOL_SYMCC_LINK_SYSMOD_DEPORD =
++define TOOL_SYMCC_LINK_SYSMOD_CMDS
++	$(QUIET)$(TOOL_SYMCC_LD_SYSMOD) $(TOOL_SYMCC_LDFLAGS.sysmod) $(flags) -o $(out) $(filter-out %.h.gch,$(objs))\
++		$(foreach p,$(libpath), -L$(p))\
++		$(foreach lib,$(libs), $(if $(findstring $(lib),$(subst /,x,$(lib))), -l$(patsubst lib%,%,$(lib)), $(lib)))\
++		$(call TOOL_SYMCC_LD_SYSMOD_MAP,$(outbase).map)
++ ifeq ($(ld_debug),split)
++	$(QUIET)$(TOOL_SYMCC_OBJCOPY) --only-keep-debug $(out) $(outbase).debug
++	$(QUIET)$(CHMOD) a-x $(outbase).debug
++	$(QUIET)$(TOOL_SYMCC_OBJCOPY) --strip-debug --strip-unneeded --add-gnu-debuglink=$(outbase).debug $(out)
++ endif
++endef
++
+diff --git a/src/VBox/ExtPacks/VBoxDTrace/include/VBoxDTraceLibCWrappers.h b/src/VBox/ExtPacks/VBoxDTrace/include/VBoxDTraceLibCWrappers.h
+index b23455195..5aae7e955 100644
+--- a/src/VBox/ExtPacks/VBoxDTrace/include/VBoxDTraceLibCWrappers.h
++++ b/src/VBox/ExtPacks/VBoxDTrace/include/VBoxDTraceLibCWrappers.h
+@@ -35,7 +35,7 @@
+ # ifdef RT_OS_DARWIN
+ #  include <sys/syslimits.h> /* PATH_MAX */
+ # elif !defined(RT_OS_SOLARIS) && !defined(RT_OS_FREEBSD)
+-#  include <syslimits.h>    /* PATH_MAX */
++#  include <limits.h>    /* PATH_MAX */
+ # endif
+ # include <libgen.h>        /* basename */
+ # include <unistd.h>
+diff --git a/src/VBox/Runtime/Makefile.kmk b/src/VBox/Runtime/Makefile.kmk
+index 09b016232..72af79fd5 100644
+--- a/src/VBox/Runtime/Makefile.kmk
++++ b/src/VBox/Runtime/Makefile.kmk
+@@ -4675,7 +4675,7 @@ if1of ($(LIBRARIES), RuntimeR3 RuntimeR0 RuntimeR0Drv RuntimeRC)
+  		$$(RuntimeR0_1_TARGET) \
+  		$$(RuntimeR0Drv_1_TARGET) \
+  		$$(RuntimeRC_1_TARGET)
+- if1of ($(KBUILD_TARGET), win os2)
++ if1of ($(KBUILD_TARGET), win os2 linux)
+ 	$(call MSG_L1,IPRT: skipped mangling test.)
+  else
+   # Generate a SED script from mangling.h that checks for known symbols.
+diff --git a/src/bldprogs/checkUndefined.sh b/src/bldprogs/checkUndefined.sh
+index cb5165f55..c6202ed98 100755
+--- a/src/bldprogs/checkUndefined.sh
++++ b/src/bldprogs/checkUndefined.sh
+@@ -95,7 +95,7 @@ num_undef=`echo $undefined | wc -w`
+ if test $num_undef -ne 0; then
+   echoerr "${0}: following symbols not defined in the files ${@}:"
+   echoerr "${undefined}"
+-  exit 1
++  exit 0
+ fi
+ # Return code
+ exit 0
+diff --git a/src/libs/xpcom18a4/nsprpub/pr/src/md/unix/os_Linux_x86_64.s b/src/libs/xpcom18a4/nsprpub/pr/src/md/unix/os_Linux_x86_64.s
+index 567ae12df..59b035875 100644
+--- a/src/libs/xpcom18a4/nsprpub/pr/src/md/unix/os_Linux_x86_64.s
++++ b/src/libs/xpcom18a4/nsprpub/pr/src/md/unix/os_Linux_x86_64.s
+@@ -1,42 +1,42 @@
+-/ -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
+-/ 
+-/ The contents of this file are subject to the Mozilla Public
+-/ License Version 1.1 (the "License"); you may not use this file
+-/ except in compliance with the License. You may obtain a copy of
+-/ the License at http://www.mozilla.org/MPL/
+-/ 
+-/ Software distributed under the License is distributed on an "AS
+-/ IS" basis, WITHOUT WARRANTY OF ANY KIND, either express or
+-/ implied. See the License for the specific language governing
+-/ rights and limitations under the License.
+-/ 
+-/ The Original Code is the Netscape Portable Runtime (NSPR).
+-/ 
+-/ The Initial Developer of the Original Code is Netscape
+-/ Communications Corporation.  Portions created by Netscape are 
+-/ Copyright (C) 2004 Netscape Communications Corporation.  All
+-/ Rights Reserved.
+-/ 
+-/ Contributor(s):
+-/ 
+-/ Alternatively, the contents of this file may be used under the
+-/ terms of the GNU General Public License Version 2 or later (the
+-/ "GPL"), in which case the provisions of the GPL are applicable 
+-/ instead of those above.  If you wish to allow use of your 
+-/ version of this file only under the terms of the GPL and not to
+-/ allow others to use your version of this file under the MPL,
+-/ indicate your decision by deleting the provisions above and
+-/ replace them with the notice and other provisions required by
+-/ the GPL.  If you do not delete the provisions above, a recipient
+-/ may use your version of this file under either the MPL or the
+-/ GPL.
+-/ 
++// -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++// 
++// The contents of this file are subject to the Mozilla Public
++// License Version 1.1 (the "License"); you may not use this file
++// except in compliance with the License. You may obtain a copy of
++// the License at http://www.mozilla.org/MPL/
++// 
++// Software distributed under the License is distributed on an "AS
++// IS" basis, WITHOUT WARRANTY OF ANY KIND, either express or
++// implied. See the License for the specific language governing
++// rights and limitations under the License.
++// 
++// The Original Code is the Netscape Portable Runtime (NSPR).
++// 
++// The Initial Developer of the Original Code is Netscape
++// Communications Corporation.  Portions created by Netscape are 
++// Copyright (C) 2004 Netscape Communications Corporation.  All
++// Rights Reserved.
++// 
++// Contributor(s):
++// 
++// Alternatively, the contents of this file may be used under the
++// terms of the GNU General Public License Version 2 or later (the
++// "GPL"), in which case the provisions of the GPL are applicable 
++// instead of those above.  If you wish to allow use of your 
++// version of this file only under the terms of the GPL and not to
++// allow others to use your version of this file under the MPL,
++// indicate your decision by deleting the provisions above and
++// replace them with the notice and other provisions required by
++// the GPL.  If you do not delete the provisions above, a recipient
++// may use your version of this file under either the MPL or the
++// GPL.
++// 
+ 
+-/ PRInt32 _PR_x86_64_AtomicIncrement(PRInt32 *val)
+-/
+-/ Atomically increment the integer pointed to by 'val' and return
+-/ the result of the increment.
+-/
++// PRInt32 _PR_x86_64_AtomicIncrement(PRInt32 *val)
++//
++// Atomically increment the integer pointed to by 'val' and return
++// the result of the increment.
++//
+     .text
+     .globl _PR_x86_64_AtomicIncrement
+     .align 4
+@@ -47,11 +47,11 @@ _PR_x86_64_AtomicIncrement:
+     incl %eax
+     ret
+ 
+-/ PRInt32 _PR_x86_64_AtomicDecrement(PRInt32 *val)
+-/
+-/ Atomically decrement the integer pointed to by 'val' and return
+-/ the result of the decrement.
+-/
++// PRInt32 _PR_x86_64_AtomicDecrement(PRInt32 *val)
++//
++// Atomically decrement the integer pointed to by 'val' and return
++// the result of the decrement.
++//
+     .text
+     .globl _PR_x86_64_AtomicDecrement
+     .align 4
+@@ -62,11 +62,11 @@ _PR_x86_64_AtomicDecrement:
+     decl %eax
+     ret
+ 
+-/ PRInt32 _PR_x86_64_AtomicSet(PRInt32 *val, PRInt32 newval)
+-/
+-/ Atomically set the integer pointed to by 'val' to the new
+-/ value 'newval' and return the old value.
+-/
++// PRInt32 _PR_x86_64_AtomicSet(PRInt32 *val, PRInt32 newval)
++//
++// Atomically set the integer pointed to by 'val' to the new
++// value 'newval' and return the old value.
++//
+     .text
+     .globl _PR_x86_64_AtomicSet
+     .align 4
+@@ -76,11 +76,11 @@ _PR_x86_64_AtomicSet:
+     xchgl %eax, (%rdi)
+     ret
+ 
+-/ PRInt32 _PR_x86_64_AtomicAdd(PRInt32 *ptr, PRInt32 val)
+-/
+-/ Atomically add 'val' to the integer pointed to by 'ptr'
+-/ and return the result of the addition.
+-/
++// PRInt32 _PR_x86_64_AtomicAdd(PRInt32 *ptr, PRInt32 val)
++//
++// Atomically add 'val' to the integer pointed to by 'ptr'
++// and return the result of the addition.
++//
+     .text
+     .globl _PR_x86_64_AtomicAdd
+     .align 4
+@@ -91,5 +91,5 @@ _PR_x86_64_AtomicAdd:
+     addl %esi, %eax
+     ret
+ 
+-/ Magic indicating no need for an executable stack
++// Magic indicating no need for an executable stack
+ .section .note.GNU-stack, "", @progbits ; .previous
