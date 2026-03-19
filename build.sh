@@ -5,7 +5,7 @@ vbox_dir=$1
 pushd $vbox_dir
 
 # assuming you have patched the source code
-# patch -p1 < $SCRIPT_DIR/VirtualBox-7.0.20-clang.patch
+# patch -p1 < $SCRIPT_DIR/VirtualBox-7.2.6-clang.patch
 ./configure --disable-hardening -d \
         --disable-docs --disable-java --disable-qt \
         --build-headless --nofatal
