@@ -44,8 +44,13 @@ fi
 source "$env_script"
 
 kmk_args=(
+    KBUILD_TYPE=asan
     VBOX_GCC_TOOL=CLANG
     "-j${jobs}"
 )
+
+if [ -n "${VBOX_WITH_GCC_SANITIZER_STATIC:-}" ]; then
+    kmk_args+=("VBOX_WITH_GCC_SANITIZER_STATIC=${VBOX_WITH_GCC_SANITIZER_STATIC}")
+fi
 
 kmk "${kmk_args[@]}" "$@"
