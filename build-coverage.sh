@@ -43,9 +43,36 @@ kmk_args=(
     'TOOL_CLANG_CXXFLAGS+= -m64 -fprofile-instr-generate -fcoverage-mapping -DIPRT_WITHOUT_PAM'
 )
 
-kmk "${kmk_args[@]}" 
+kmk "${kmk_args[@]}" "-j${jobs}" "$@"
+kmk "${kmk_args[@]}" "-j${jobs}" -C src/VBox/ExtPacks/VNC packing
 
-cd out-clang-coverage/linux.amd64/release/bin/src
+build_target="${KBUILD_TARGET:-linux}.${KBUILD_TARGET_ARCH:-amd64}"
+release_dir="$out_base_dir/$build_target/release"
+bin_dir="$release_dir/bin"
+pkg_dir="$release_dir/packages"
+
+if [[ "${VBOX_INSTALL_VNC_EXTPACK:-1}" == "1" ]]; then
+    extpack_file=$(ls -1 "$pkg_dir"/VNC-*.vbox-extpack 2>/dev/null | tail -n 1 || true)
+    if [[ -z "$extpack_file" ]]; then
+        echo "VNC extpack package was not generated under: $pkg_dir" >&2
+        exit 1
+    fi
+
+    license_hash=${VBOX_EXTPACK_LICENSE_HASH:-}
+    if [[ -z "$license_hash" ]]; then
+        license_hash=$("$bin_dir/VBoxManage" extpack install --dry-run "$extpack_file" 2>&1 \
+            | sed -n 's/.*--accept-license=\([0-9a-f]\{64\}\).*/\1/p' \
+            | tail -n 1 || true)
+    fi
+
+    if [[ -n "$license_hash" ]]; then
+        "$bin_dir/VBoxManage" extpack install --replace --accept-license="$license_hash" "$extpack_file"
+    else
+        yes | "$bin_dir/VBoxManage" extpack install --replace "$extpack_file"
+    fi
+fi
+
+cd "$bin_dir/src"
 sudo make 
 sudo make install
 for mod in vboxnetadp vboxnetflt vboxdrv; do
