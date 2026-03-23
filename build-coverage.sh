@@ -48,7 +48,13 @@ kmk "${kmk_args[@]}"
 cd out-clang-coverage/linux.amd64/release/bin/src
 sudo make 
 sudo make install
-sudo rmmod vboxnetadp vboxnetflt vboxdrv
+for mod in vboxnetadp vboxnetflt vboxdrv; do
+    if lsmod | awk '{print $1}' | grep -qx "$mod"; then
+        sudo rmmod "$mod"
+    else
+        echo "Module $mod is not loaded; skipping rmmod."
+    fi
+done
 sudo insmod vboxdrv.ko
 sudo insmod vboxnetflt.ko
 sudo insmod vboxnetadp.ko

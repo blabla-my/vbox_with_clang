@@ -52,3 +52,28 @@ kmk_args=(
 )
 
 kmk "${kmk_args[@]}" "$@"
+
+if [[ "${VBOX_INSTALL_MODULES:-0}" == "1" ]]; then
+    module_src_dir="${VBOX_MODULE_SRC_DIR:-$vbox_dir/out/linux.amd64/release/bin/src}"
+    if [[ ! -d "$module_src_dir" ]]; then
+        echo "Module source dir not found: $module_src_dir" >&2
+        echo "Set VBOX_MODULE_SRC_DIR to the directory containing vboxdrv.ko/vboxnetflt.ko/vboxnetadp.ko." >&2
+        exit 1
+    fi
+
+    cd "$module_src_dir"
+    sudo make
+    sudo make install
+    for mod in vboxnetadp vboxnetflt vboxdrv; do
+        if lsmod | awk '{print $1}' | grep -qx "$mod"; then
+            sudo rmmod "$mod"
+        else
+            echo "Module $mod is not loaded; skipping rmmod."
+        fi
+    done
+    sudo insmod vboxdrv.ko
+    sudo insmod vboxnetflt.ko
+    sudo insmod vboxnetadp.ko
+    sudo chmod o+rw /dev/vboxdrv
+    cd -
+fi
