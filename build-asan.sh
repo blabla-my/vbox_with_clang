@@ -22,7 +22,6 @@ cd "$vbox_dir"
 
 configure_args=(
     --disable-hardening
-    -d
     --disable-docs
     --disable-java
     --disable-qt
@@ -44,13 +43,19 @@ fi
 source "$env_script"
 
 kmk_args=(
-    KBUILD_TYPE=asan
+    VBOX_SVN_REV=172322
+    KBUILD_TYPE=release
     VBOX_GCC_TOOL=CLANG
-    "-j${jobs}"
+    'TOOL_CLANG_CFLAGS= -fsanitize=address'
+    'TOOL_CLANG_CXXFLAGS= -fsanitize=address'
 )
 
-if [ -n "${VBOX_WITH_GCC_SANITIZER_STATIC:-}" ]; then
-    kmk_args+=("VBOX_WITH_GCC_SANITIZER_STATIC=${VBOX_WITH_GCC_SANITIZER_STATIC}")
-fi
-
-kmk "${kmk_args[@]}" "$@"
+kmk "${kmk_args[@]}" 
+cd out-clang-asan/linux.amd64/release/bin/src
+sudo make && sudo make install
+sudo rmmod vboxnetadp vboxnetflt vboxdrv
+sudo insmod vboxdrv.ko
+sudo insmod vboxnetflt.ko
+sudo insmod vboxnetadp.ko
+sudo chmod o+rw /dev/vboxd
+cd -

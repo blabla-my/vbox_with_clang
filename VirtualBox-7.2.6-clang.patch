@@ -419,3 +419,38 @@ index 00000000..3568e722
 +	$(QUIET)$(TOOL_CLANG_OBJCOPY) --strip-debug --strip-unneeded --add-gnu-debuglink=$(outbase).debug $(out)
 + endif
 +endef
+
+diff --git a/src/VBox/Runtime/Makefile.kmk b/src/VBox/Runtime/Makefile.kmk
+--- a/src/VBox/Runtime/Makefile.kmk
++++ b/src/VBox/Runtime/Makefile.kmk
+@@ -4956,24 +4956,29 @@
+ 		| $(SED) \
+ 			-e 's/[[:space:]]\+/ /g' \
+ 			-e '/^  *[[:digit:]]\+:/!d' \
+-			-e 's/^ \+[[:digit:]]\+: \+[[:xdigit:]]\+ \+[[:digit:]]\+ \+//' \
++			-e 's/^ \+[[:digit:]]\+: \+[[:xdigit:]]\+ \+[[:xdigit:]x]\+ \+//' \
+ 			-e '/^SECTION/d' \
+ 			-e '/^FILE/d' \
+ 			-e 's/^[[:alpha:]]\+ \+//' \
+ 			-e '/LOCAL/d' \
+ 			-e 's/^[[:alpha:]]\+ \+//' \
+ 			-e '/^HIDDEN [[:xdigit:]]\+ RT/bkeep-hidden' \
+ 			-e '/^HIDDEN [[:xdigit:]]\+ g_[a-z0-9]*RT/bkeep-hidden' \
+ 			-e '/^HIDDEN/d' \
+ 			-e ':keep-hidden' \
+ 			-e 's/^[[:alpha:]]\+ \+//' \
+ 			-e '/^UND/d' \
+ 			-e 's/^[[:digit:]]\+ \+//' \
+ 			\
++			-e '/^__covrec_/d' \
++			-e '/^__profc_/d' \
++			-e '/^__llvm_cov/d' \
++			-e '/^__llvm_prf/d' \
++			\
+ 			-e '/^nocrt_/d' \
+ 			-e '/^bzero/d' \
+ 			-e '/^memchr/d' \
+ 			-e '/^memcmp/d' \
+ 			-e '/^memcpy/d' \
+ 			-e '/^mempcpy/d' \
+ 			-e '/^memmove/d' \

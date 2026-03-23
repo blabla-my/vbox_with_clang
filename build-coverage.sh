@@ -29,6 +29,7 @@ mkdir -p $out_base_dir
     --disable-qt \
     --build-headless \
     --nofatal \
+    --enable-vnc \
     --out-base-dir="$out_base_dir"
 
 # shellcheck disable=SC1090
@@ -37,8 +38,8 @@ source "$out_base_dir/env.sh"
 kmk_args=(
     VBOX_GCC_TOOL=CLANG
     VBOX_SVN_REV=172322
-    'TOOL_CLANG_CFLAGS+= -fprofile-instr-generate -fcoverage-mapping'
-    'TOOL_CLANG_CXXFLAGS+= -fprofile-instr-generate -fcoverage-mapping'
+    'TOOL_CLANG_CFLAGS+= -m64 -fprofile-instr-generate -fcoverage-mapping'
+    'TOOL_CLANG_CXXFLAGS+= -m64 -fprofile-instr-generate -fcoverage-mapping'
 )
 
 kmk "${kmk_args[@]}" 
