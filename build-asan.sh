@@ -46,8 +46,8 @@ kmk_args=(
     VBOX_SVN_REV=172322
     KBUILD_TYPE=release
     VBOX_GCC_TOOL=CLANG
-    'TOOL_CLANG_CFLAGS= -fsanitize=address'
-    'TOOL_CLANG_CXXFLAGS= -fsanitize=address'
+    'TOOL_CLANG_CFLAGS= -fsanitize=address -DIPRT_WITHOUT_PAM'
+    'TOOL_CLANG_CXXFLAGS= -fsanitize=address -DIPRT_WITHOUT_PAM'
 )
 
 kmk "${kmk_args[@]}" 
