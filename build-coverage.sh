@@ -38,6 +38,7 @@ source "$out_base_dir/env.sh"
 kmk_args=(
     VBOX_GCC_TOOL=CLANG
     VBOX_SVN_REV=172322
+    'VBOX_GCC_no-pie=-no-pie'
     'TOOL_CLANG_CFLAGS+= -m64 -fprofile-instr-generate -fcoverage-mapping -DIPRT_WITHOUT_PAM'
     'TOOL_CLANG_CXXFLAGS+= -m64 -fprofile-instr-generate -fcoverage-mapping -DIPRT_WITHOUT_PAM'
 )

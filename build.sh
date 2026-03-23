@@ -45,6 +45,7 @@ source "$env_script"
 
 kmk_args=(
     VBOX_GCC_TOOL=CLANG
+    'VBOX_GCC_no-pie=-no-pie'
     'TOOL_CLANG_CFLAGS+= -DIPRT_WITHOUT_PAM'
     'TOOL_CLANG_CXXFLAGS+= -DIPRT_WITHOUT_PAM'
     "-j${jobs}"
