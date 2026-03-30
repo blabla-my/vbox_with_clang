@@ -19,8 +19,8 @@ jobs=${JOBS:-$(get_jobs)}
 
 cd "$vbox_dir"
 
-out_base_dir=$vbox_dir/out-clang-coverage
-mkdir -p $out_base_dir
+out_base_dir=${OUT_BASE_DIR:-"$vbox_dir/out-clang-coverage"}
+mkdir -p -- "$out_base_dir"
 
 ./configure \
     --disable-hardening \
@@ -43,15 +43,64 @@ kmk_args=(
     'TOOL_CLANG_CXXFLAGS+= -m64 -fprofile-instr-generate -fcoverage-mapping -DIPRT_WITHOUT_PAM'
 )
 
+have_explicit_target=0
+have_vboxmanage_target=0
+for arg in "$@"; do
+    case "$arg" in
+        -*|*=*)
+            ;;
+        *)
+            have_explicit_target=1
+            if [[ "$arg" == "VBoxManage" ]]; then
+                have_vboxmanage_target=1
+            fi
+            ;;
+    esac
+done
+
+if [[ "${VBOX_INSTALL_VNC_EXTPACK:-1}" == "1" ]] \
+    && [[ "$have_explicit_target" == "1" ]] \
+    && [[ "$have_vboxmanage_target" == "0" ]]; then
+    set -- "$@" VBoxManage
+fi
+
 kmk "${kmk_args[@]}" "-j${jobs}" "$@"
-kmk "${kmk_args[@]}" "-j${jobs}" -C src/VBox/ExtPacks/VNC packing
 
 build_target="${KBUILD_TARGET:-linux}.${KBUILD_TARGET_ARCH:-amd64}"
 release_dir="$out_base_dir/$build_target/release"
 bin_dir="$release_dir/bin"
 pkg_dir="$release_dir/packages"
+module_src_dir="$bin_dir/src"
+
+if [[ ! -d "$module_src_dir" ]]; then
+    echo "Module source dir not found: $module_src_dir" >&2
+    exit 1
+fi
+
+cd "$module_src_dir"
+sudo make
+sudo make install
+for mod in vboxnetadp vboxnetflt vboxdrv; do
+    if lsmod | awk '{print $1}' | grep -qx "$mod"; then
+        sudo rmmod "$mod"
+    else
+        echo "Module $mod is not loaded; skipping rmmod."
+    fi
+done
+sudo insmod vboxdrv.ko
+sudo insmod vboxnetflt.ko
+sudo insmod vboxnetadp.ko
+sudo chmod o+rw /dev/vboxdrv
+cd -
+
+kmk "${kmk_args[@]}" "-j${jobs}" -C src/VBox/ExtPacks/VNC packing
 
 if [[ "${VBOX_INSTALL_VNC_EXTPACK:-1}" == "1" ]]; then
+    if [[ ! -x "$bin_dir/VBoxManage" ]]; then
+        echo "VBoxManage was not built under: $bin_dir" >&2
+        exit 1
+    fi
+
     extpack_file=$(ls -1 "$pkg_dir"/VNC-*.vbox-extpack 2>/dev/null | tail -n 1 || true)
     if [[ -z "$extpack_file" ]]; then
         echo "VNC extpack package was not generated under: $pkg_dir" >&2
@@ -71,19 +120,3 @@ if [[ "${VBOX_INSTALL_VNC_EXTPACK:-1}" == "1" ]]; then
         yes | "$bin_dir/VBoxManage" extpack install --replace "$extpack_file"
     fi
 fi
-
-cd "$bin_dir/src"
-sudo make 
-sudo make install
-for mod in vboxnetadp vboxnetflt vboxdrv; do
-    if lsmod | awk '{print $1}' | grep -qx "$mod"; then
-        sudo rmmod "$mod"
-    else
-        echo "Module $mod is not loaded; skipping rmmod."
-    fi
-done
-sudo insmod vboxdrv.ko
-sudo insmod vboxnetflt.ko
-sudo insmod vboxnetadp.ko
-sudo chmod o+rw /dev/vboxdrv
-cd -
